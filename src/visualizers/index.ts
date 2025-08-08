@@ -7,6 +7,8 @@ import { WaveTunnel, waveTunnelMeta } from './presets/WaveTunnel'
 import { PulseSphere, pulseSphereMeta } from './presets/PulseSphere'
 import { AbstractBloom, abstractBloomMeta } from './presets/AbstractBloom'
 import { WaveKnot, waveKnotMeta } from './presets/WaveKnot'
+import { WaveKnotFat, waveKnotFatMeta } from './presets/WaveKnotFat'
+import { WaveKnotOrganic, waveKnotOrganicMeta } from './presets/WaveKnotOrganic'
 
 export const visualizers: Record<string, { Component: VisualizerComponent; meta: VisualizerMeta }> = {
   [bars3DMeta.id]: { Component: Bars3D, meta: bars3DMeta },
@@ -15,6 +17,8 @@ export const visualizers: Record<string, { Component: VisualizerComponent; meta:
   [pulseSphereMeta.id]: { Component: PulseSphere, meta: pulseSphereMeta },
   [abstractBloomMeta.id]: { Component: AbstractBloom, meta: abstractBloomMeta },
   [waveKnotMeta.id]: { Component: WaveKnot, meta: waveKnotMeta },
+  [waveKnotFatMeta.id]: { Component: WaveKnotFat, meta: waveKnotFatMeta },
+  [waveKnotOrganicMeta.id]: { Component: WaveKnotOrganic, meta: waveKnotOrganicMeta },
 }
 
 export type AvailableVisualizerId = keyof typeof visualizers

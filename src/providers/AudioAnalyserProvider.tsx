@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-// Meyda types vary by build; fall back to any for analyzer
 import Meyda from 'meyda'
 
 export interface AudioAnalyserContextValue {
@@ -16,12 +15,6 @@ export interface AudioAnalyserContextValue {
     beat: {
       isOnset: boolean
       confidence: number
-    }
-    bands?: {
-      lowAvg: number
-      midAvg: number
-      highAvg: number
-      onsets: { kick: boolean; snare: boolean; hat: boolean }
     }
   }
 }
@@ -48,7 +41,6 @@ export function AudioAnalyserProvider({ children }: Props) {
   const waveform = useMemo(() => new Uint8Array(1024), [])
   const [rms, setRms] = useState(0)
   const beatRef = useRef({ isOnset: false, confidence: 0 })
-  const bandsRef = useRef({ lowAvg: 0, midAvg: 0, highAvg: 0, onsets: { kick: false, snare: false, hat: false } })
 
   useEffect(() => {
     if (!audioElement) return
@@ -64,34 +56,24 @@ export function AudioAnalyserProvider({ children }: Props) {
     source.connect(analyser)
     analyser.connect(ctx.destination)
 
-    // We rely on native AnalyserNode for data; no THREE.AudioAnalyser needed
+    // Feed the same source into Three.js audio graph (same context)
+    const threeAudio = new THREE.Audio(listener)
+    threeAudio.setNodeSource(source)
+    const threeAnalyserLocal = new THREE.AudioAnalyser(threeAudio, 2048)
 
     setAudioContext(ctx)
     setAnalyserNode(analyser)
-    setThreeAnalyser(null)
+    setThreeAnalyser(threeAnalyserLocal)
 
-    let meydaAnalyzer: any | null = null
+    let meydaAnalyzer: Meyda.MeydaAnalyzer | null = null
     try {
       meydaAnalyzer = Meyda.createMeydaAnalyzer({
         audioContext: ctx,
         source: source as unknown as AudioNode,
         bufferSize: 2048,
-        featureExtractors: ['rms', 'spectralCentroid', 'energy'],
-        callback: (features: any) => {
+        featureExtractors: ['rms', 'perceptualSpread', 'perceptualSharpness'],
+        callback: (features) => {
           setRms(features.rms ?? 0)
-          const freq = new Uint8Array(1024)
-          analyser.getByteFrequencyData(freq)
-          const third = Math.floor(freq.length / 3)
-          const sliceAvg = (arr: Uint8Array, s: number, e: number) =>
-            arr.slice(s, e).reduce((a, b) => a + b, 0) / Math.max(1, e - s) / 255
-          const lowAvg = sliceAvg(freq, 0, third)
-          const midAvg = sliceAvg(freq, third, third * 2)
-          const highAvg = sliceAvg(freq, third * 2, freq.length)
-          // naive onset heuristics by band energy spikes
-          const kick = lowAvg > 0.35
-          const snare = midAvg > 0.3
-          const hat = highAvg > 0.28
-          bandsRef.current = { lowAvg, midAvg, highAvg, onsets: { kick, snare, hat } }
         },
       })
       meydaAnalyzer.start()
@@ -126,6 +108,7 @@ export function AudioAnalyserProvider({ children }: Props) {
     return () => {
       cancelAnimationFrame(raf)
       meydaAnalyzer?.stop()
+      threeAnalyserLocal.analyser.disconnect()
       analyser.disconnect()
       source.disconnect()
       ctx.close()
@@ -148,7 +131,6 @@ export function AudioAnalyserProvider({ children }: Props) {
       waveform,
       rms,
       beat: beatRef.current,
-      bands: bandsRef.current,
     },
   }
 
