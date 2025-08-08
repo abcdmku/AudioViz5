@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  @apply h-full w-full;
+}
+
+body {
+  @apply bg-neutral-900 text-neutral-100 antialiased;
+}
+
+.btn {
+  @apply inline-flex items-center gap-2 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-100 px-3 py-2 text-sm font-medium border border-neutral-700 transition-colors;
+}
+
+.select {
+  @apply bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/50;
+}
+
+.card {
+  @apply bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-lg shadow-lg;
+}
