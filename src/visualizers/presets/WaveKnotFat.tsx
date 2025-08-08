@@ -66,7 +66,7 @@ export const WaveKnotFat: VisualizerComponent = ({ analyserData, settings }) => 
       <ambientLight intensity={0.5} />
       <directionalLight position={[3, 5, 2]} intensity={1.2} />
       <Environment preset={'city' as any} />
-      <OrbitControls enablePan enableZoom enableRotate enableDamping dampingFactor={0.1} />
+      <OrbitControls enablePan enableZoom enableRotate enableDamping dampingFactor={0.1} autoRotate autoRotateSpeed={5} />
       <mesh>
         {/* High segment counts for detailed deformations */}
         <torusKnotGeometry args={[1.5, 0.35, 1024, 256]} />
