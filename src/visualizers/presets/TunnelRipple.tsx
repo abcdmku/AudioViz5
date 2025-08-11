@@ -27,14 +27,14 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const RADIAL_SEGMENTS = 64        // Frequency resolution
   const LENGTH_SEGMENTS = 128       // Ripple smoothness
   const RIPPLE_SPEED = 0.5          // Speed ripples travel (0-1)
-  const RIPPLE_DECAY = 0.95         // Ripple fade rate per frame
+  const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
   const RIPPLE_WIDTH = 100          // Ripple gaussian width (shader param)
-  const RIPPLE_AMPLITUDE = 2.0      // Max ripple displacement
+  const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
   const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
   const FREQUENCY_SCALE = 2.0       // Frequency effect multiplier
   const MIN_BPM = 70                // Minimum BPM to detect
   const MAX_BPM = 180               // Maximum BPM to detect
-  const BEAT_THRESHOLD = 0.08       // RMS threshold for beat
+  const BEAT_THRESHOLD = 0.05       // RMS threshold for beat
   const FOG_DENSITY = 0.8           // Depth fog amount
   const GLOW_INTENSITY = 0.3        // Frequency glow strength
   const MAX_RIPPLES = 32            // Maximum concurrent ripples
@@ -111,7 +111,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
     
     // Check for onset
     const rms = analyserData.rms
-    const rmsSpike = rms > prevRms.current * 1.22 && rms > BEAT_THRESHOLD
+    const rmsSpike = rms > prevRms.current * 1.15 && rms > BEAT_THRESHOLD
     const onset = analyserData.beat.isOnset || rmsSpike
     
     if (!onset) {
@@ -122,8 +122,8 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
     // Calculate time since last beat
     const timeDiff = currentTime - lastBeatTime.current
     
-    // Skip if too soon (debounce)
-    if (timeDiff < 60000 / MAX_BPM) {
+    // Skip if too soon (debounce) - allow faster beats
+    if (timeDiff < 200) {
       prevRms.current = rms
       return false
     }
@@ -165,17 +165,27 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
     
     // Detect beats and create new ripples
     const currentTime = Date.now()
-    if (detectBeat(currentTime)) {
+    const shouldCreateRipple = detectBeat(currentTime)
+    
+    // Also create ripples based on energy level for more responsive visuals
+    const energy = analyserData ? analyserData.frequency.reduce((a, b) => a + b, 0) / analyserData.frequency.length / 255 : 0
+    const energyRipple = energy > 0.4 && (currentTime - lastBeatTime.current) > 500
+    
+    if (shouldCreateRipple || energyRipple) {
       // Shift hue
       currentHue.current = (currentHue.current + HUE_SHIFT_SPEED) % 1.0
       
       // Create new ripple at tunnel end (position 0)
       ripples.current.unshift({
         position: 0,
-        amplitude: 1.0,
+        amplitude: energyRipple ? energy * 1.5 : 1.0,
         hue: currentHue.current,
         timestamp: currentTime,
       })
+      
+      if (energyRipple) {
+        lastBeatTime.current = currentTime
+      }
       
       // Limit ripple count
       if (ripples.current.length > MAX_RIPPLES) {
@@ -215,10 +225,10 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
         enableRotate={true}
         enableDamping
         dampingFactor={0.1}
-        target={[0, -TUNNEL_LENGTH / 2, 0]}
+        target={[0, 0, -10]}
       />
       
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+      <mesh position={[0, 0, 0]}>
         <cylinderGeometry
           args={[
             TUNNEL_RADIUS,
@@ -264,8 +274,8 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
                 float ripplePos = uRipplePositions[i];
                 float rippleAmp = uRippleAmplitudes[i];
                 
-                // Calculate distance from ripple center (inverted for correct direction)
-                float dist = abs((1.0 - uv.y) - ripplePos);
+                // Calculate distance from ripple center
+                float dist = abs(uv.y - ripplePos);
                 
                 // Gaussian wave shape
                 float wave = exp(-dist * dist * uRippleWidth) * rippleAmp;
@@ -316,14 +326,14 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
 
             void main() {
               // Find most recent ripple affecting this position
+              // Ripples start at y=0 (far end) and travel to y=1 (near end)
               float currentHue = 0.5;
-              float invY = 1.0 - vUv.y; // Invert for correct direction
               
               for (int i = 0; i < ${MAX_RIPPLES}; i++) {
                 if (i >= uRippleCount) break;
-                if (uRipplePositions[i] >= invY) {
+                // If ripple has passed this position, use its hue
+                if (uRipplePositions[i] >= vUv.y) {
                   currentHue = uRippleHues[i];
-                  break;
                 }
               }
               
