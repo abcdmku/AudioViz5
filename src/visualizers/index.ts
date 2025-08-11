@@ -12,6 +12,7 @@ import { WaveKnotFat, waveKnotFatMeta } from './presets/WaveKnotFat'
 import { WaveKnotOrganic, waveKnotOrganicMeta } from './presets/WaveKnotOrganic'
 
 import { WaveKnotFatParam, waveKnotFatParamMeta } from './presets/WaveKnotFatParam'
+import { TunnelRipple, tunnelRippleMeta } from './presets/TunnelRipple'
 
 export const visualizers: Record<string, { Component: VisualizerComponent; meta: VisualizerMeta }> = {
   [bars3DMeta.id]: { Component: Bars3D, meta: bars3DMeta },
@@ -24,6 +25,7 @@ export const visualizers: Record<string, { Component: VisualizerComponent; meta:
   [waveKnotFatMeta.id]: { Component: WaveKnotFat, meta: waveKnotFatMeta },
   [waveKnotOrganicMeta.id]: { Component: WaveKnotOrganic, meta: waveKnotOrganicMeta },
   [waveKnotFatParamMeta.id]: { Component: WaveKnotFatParam, meta: waveKnotFatParamMeta },
+  [tunnelRippleMeta.id]: { Component: TunnelRipple, meta: tunnelRippleMeta },
 }
 
 export type AvailableVisualizerId = keyof typeof visualizers
