@@ -22,13 +22,13 @@ interface Ripple {
 
 export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) => {
   // Configurable parameters
-  const TUNNEL_LENGTH = 50          // Tunnel depth
+  const TUNNEL_LENGTH = 80          // Tunnel depth
   const TUNNEL_RADIUS = 8           // Tunnel width
-  const RADIAL_SEGMENTS = 64        // Frequency resolution
-  const LENGTH_SEGMENTS = 128       // Ripple smoothness
+  const RADIAL_SEGMENTS = 128       // Frequency resolution
+  const LENGTH_SEGMENTS = 256       // Ripple smoothness
   const RIPPLE_SPEED = 0.5          // Speed ripples travel (0-1)
   const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
-  const RIPPLE_WIDTH = 100          // Ripple gaussian width (shader param)
+  const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
   const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
   const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
   const FREQUENCY_SCALE = 2.0       // Frequency effect multiplier
@@ -266,7 +266,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               vUv = uv;
               
               // Get frequency for this radial segment
-              float freqU = floor(uv.x * ${RADIAL_SEGMENTS}.0) / ${RADIAL_SEGMENTS}.0;
+              float freqU = floor(uv.x * 128.0) / 128.0;
               vFrequency = texture2D(uFrequencyTexture, vec2(freqU, 0.5)).r / 255.0;
               
               vec3 pos = position;
@@ -282,8 +282,14 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
                 // Calculate distance from ripple center
                 float dist = abs(uv.y - ripplePos);
                 
-                // Gaussian wave shape
-                float wave = exp(-dist * dist * uRippleWidth) * rippleAmp;
+                // Main Gaussian wave shape
+                float mainWave = exp(-dist * dist * uRippleWidth) * rippleAmp;
+                
+                // Add secondary waves for more detail
+                float secondaryWave = exp(-dist * dist * (uRippleWidth * 2.0)) * rippleAmp * 0.5;
+                float detailWave = sin(dist * 50.0) * exp(-dist * dist * uRippleWidth * 0.5) * rippleAmp * 0.3;
+                
+                float wave = mainWave + secondaryWave + detailWave;
                 
                 // Scale by frequency at this radial position
                 wave *= (1.0 + vFrequency * uFrequencyScale);
