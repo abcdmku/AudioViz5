@@ -35,7 +35,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const MIN_BPM = 40                // Minimum BPM to detect
   const MAX_BPM = 500               // Maximum BPM to detect
   const BEAT_THRESHOLD = 0.005       // RMS threshold for beat
-  const FOG_DENSITY = 1           // Depth fog amount
+  const FOG_DENSITY = 0.9           // Depth fog amount
   const GLOW_INTENSITY = 0.3        // Frequency glow strength
   const MAX_RIPPLES = 128            // Maximum concurrent ripples
 
@@ -321,9 +321,9 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
                 rippleSum += wave;
               }
               
-              // Displace vertices radially
+              // Displace vertices radially inward (shrinking effect)
               vec3 normal = normalize(vec3(pos.x, 0.0, pos.z));
-              pos += normal * rippleSum * uRippleAmplitude;
+              pos -= normal * rippleSum * uRippleAmplitude;
               
               gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
