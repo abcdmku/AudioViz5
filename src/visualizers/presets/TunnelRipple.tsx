@@ -233,8 +233,25 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
         position={[0, TUNNEL_LENGTH / 2 + 5, 0]} 
         fov={75}
       />
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[0, 0, 10]} intensity={0.7} />
+      <ambientLight intensity={0.2} />
+      <directionalLight 
+        position={[TUNNEL_RADIUS * 2, TUNNEL_LENGTH / 4, TUNNEL_RADIUS]} 
+        intensity={1.5} 
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-near={0.1}
+        shadow-camera-far={TUNNEL_LENGTH * 2}
+        shadow-camera-left={-TUNNEL_RADIUS * 2}
+        shadow-camera-right={TUNNEL_RADIUS * 2}
+        shadow-camera-top={TUNNEL_RADIUS * 2}
+        shadow-camera-bottom={-TUNNEL_RADIUS * 2}
+      />
+      <directionalLight 
+        position={[-TUNNEL_RADIUS, -TUNNEL_LENGTH / 3, TUNNEL_RADIUS * 1.5]} 
+        intensity={0.8} 
+        color="#4a90e2"
+      />
       <Environment preset="night" />
       <OrbitControls
         enablePan={false}
@@ -245,7 +262,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
         target={[0, -TUNNEL_LENGTH / 4, 0]}
       />
       
-      <mesh position={[0, 0, 0]}>
+      <mesh position={[0, 0, 0]} receiveShadow castShadow>
         <cylinderGeometry
           args={[
             TUNNEL_RADIUS,
@@ -260,11 +277,18 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
           side={THREE.BackSide}
           transparent
           blending={THREE.AdditiveBlending}
+          lights={true}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          uniforms={uniforms.current as any}
+          uniforms={{
+            ...uniforms.current,
+            ...THREE.UniformsLib.lights
+          } as any}
           vertexShader={`
             varying vec2 vUv;
             varying float vFrequency;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            varying vec3 vWorldPosition;
             uniform float uTime;
             uniform sampler2D uFrequencyTexture;
             uniform float uRipplePositions[${MAX_RIPPLES}];
@@ -325,12 +349,20 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               vec3 normal = normalize(vec3(pos.x, 0.0, pos.z));
               pos -= normal * rippleSum * uRippleAmplitude;
               
+              // Pass lighting information
+              vNormal = normalMatrix * normal;
+              vPosition = (modelViewMatrix * vec4(pos, 1.0)).xyz;
+              vWorldPosition = (modelMatrix * vec4(pos, 1.0)).xyz;
+              
               gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
           `}
           fragmentShader={`
             varying vec2 vUv;
             varying float vFrequency;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            varying vec3 vWorldPosition;
             uniform vec3 uColorA;
             uniform vec3 uColorB;
             uniform float uRippleHues[${MAX_RIPPLES}];
@@ -338,6 +370,9 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             uniform int uRippleCount;
             uniform float uFogDensity;
             uniform float uGlowIntensity;
+            
+            // Three.js lighting uniforms
+            #include <lights_pars_begin>
 
             vec3 hsl2rgb(vec3 hsl) {
               float h = hsl.x;
@@ -425,6 +460,20 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               
               // Mix with user colors
               color = mix(color, mix(uColorA, uColorB, vUv.x), 0.2);
+              
+              // Basic directional lighting calculation
+              vec3 normal = normalize(vNormal);
+              vec3 lightDirection = normalize(vec3(1.0, 0.5, 1.0)); // Main light direction
+              float lightIntensity = max(dot(normal, lightDirection), 0.0);
+              
+              // Add shadow/lighting effect
+              float shadow = 0.4 + lightIntensity * 0.6; // Base shadow + light contribution
+              color *= shadow;
+              
+              // Secondary light from opposite side
+              vec3 lightDirection2 = normalize(vec3(-0.5, -1.0, 0.8));
+              float lightIntensity2 = max(dot(normal, lightDirection2), 0.0);
+              color += lightIntensity2 * 0.3 * vec3(0.4, 0.6, 0.9); // Blue secondary light
               
               // Depth fog (looking down the tunnel)
               float depth = vUv.y;
