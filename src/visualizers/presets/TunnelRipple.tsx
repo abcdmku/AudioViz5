@@ -360,20 +360,40 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             }
 
             void main() {
-              // Color changes travel with ripples toward the camera
+              // Smooth color transitions that travel with ripples
               // Y=0 is far end (where ripples start), Y=1 is near end (camera)
               float currentHue = 0.5;
+              float blendWeight = 0.0;
               
-              // Find the furthest ripple that has passed this position
-              // This creates a traveling color wave effect
+              // Create smooth color transitions by blending between ripple hues
               for (int i = 0; i < ${MAX_RIPPLES}; i++) {
                 if (i >= uRippleCount) break;
                 
-                // If the ripple has traveled past this tunnel position,
-                // apply its hue (creating a trailing color effect)
-                if (uRipplePositions[i] >= vUv.y) {
-                  currentHue = uRippleHues[i];
-                  // Don't break - let later ripples override if they've also passed
+                float ripplePos = uRipplePositions[i];
+                float rippleHue = uRippleHues[i];
+                
+                // Calculate distance from ripple front
+                float distFromRipple = vUv.y - ripplePos;
+                
+                // Create smooth transition zone behind ripple
+                float transitionWidth = 0.15; // Smooth transition over 15% of tunnel
+                
+                if (distFromRipple <= 0.0) {
+                  // This position is ahead of the ripple - full effect
+                  float weight = 1.0;
+                  if (blendWeight < weight) {
+                    currentHue = mix(currentHue, rippleHue, weight - blendWeight);
+                    blendWeight = weight;
+                  }
+                } else if (distFromRipple < transitionWidth) {
+                  // Smooth transition zone
+                  float weight = 1.0 - (distFromRipple / transitionWidth);
+                  weight = smoothstep(0.0, 1.0, weight); // Smooth falloff
+                  
+                  if (blendWeight < weight) {
+                    currentHue = mix(currentHue, rippleHue, (weight - blendWeight) * 0.7);
+                    blendWeight = weight;
+                  }
                 }
               }
               
