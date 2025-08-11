@@ -277,12 +277,8 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
           side={THREE.BackSide}
           transparent
           blending={THREE.AdditiveBlending}
-          lights={true}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          uniforms={{
-            ...uniforms.current,
-            ...THREE.UniformsLib.lights
-          } as any}
+          uniforms={uniforms.current as any}
           vertexShader={`
             varying vec2 vUv;
             varying float vFrequency;
@@ -370,9 +366,6 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             uniform int uRippleCount;
             uniform float uFogDensity;
             uniform float uGlowIntensity;
-            
-            // Three.js lighting uniforms
-            #include <lights_pars_begin>
 
             vec3 hsl2rgb(vec3 hsl) {
               float h = hsl.x;
