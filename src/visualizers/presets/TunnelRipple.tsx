@@ -31,7 +31,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
   const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
   const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
-  const FREQUENCY_SCALE = 2.0       // Frequency effect multiplier
+  const FREQUENCY_SCALE = 4.0       // Frequency effect multiplier
   const MIN_BPM = 70                // Minimum BPM to detect
   const MAX_BPM = 180               // Maximum BPM to detect
   const BEAT_THRESHOLD = 0.05       // RMS threshold for beat
@@ -77,23 +77,35 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
     uGlowIntensity: { value: GLOW_INTENSITY },
   })
 
-  // Update frequency texture
+  // Update frequency texture with better frequency distribution
   const updateFrequencyTexture = () => {
     if (!analyserData) return
     
     const data = frequencyTexture.image.data as Uint8Array
-    const binSize = analyserData.frequency.length / RADIAL_SEGMENTS
+    const freqArray = analyserData.frequency
+    const totalBins = freqArray.length
     
     for (let i = 0; i < RADIAL_SEGMENTS; i++) {
-      const startBin = Math.floor(i * binSize)
-      const endBin = Math.floor((i + 1) * binSize)
+      // Map radial segments to frequency bands with logarithmic distribution
+      // This gives better representation across the frequency spectrum
+      const normalizedPos = i / RADIAL_SEGMENTS
       
-      // Average frequency amplitude for this segment
+      // Logarithmic frequency mapping (more detail in lower frequencies)
+      const logStart = Math.pow(normalizedPos, 1.5) * totalBins
+      const logEnd = Math.pow((i + 1) / RADIAL_SEGMENTS, 1.5) * totalBins
+      
+      const startBin = Math.floor(logStart)
+      const endBin = Math.min(Math.floor(logEnd), totalBins - 1)
+      
+      // Calculate weighted average for this frequency band
       let sum = 0
-      for (let j = startBin; j < endBin; j++) {
-        sum += analyserData.frequency[j]
+      let count = 0
+      for (let j = startBin; j <= endBin; j++) {
+        sum += freqArray[j]
+        count++
       }
-      const avg = sum / (endBin - startBin)
+      
+      const avg = count > 0 ? sum / count : 0
       
       const base = i * 4
       data[base + 0] = avg
@@ -282,17 +294,29 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
                 // Calculate distance from ripple center
                 float dist = abs(uv.y - ripplePos);
                 
-                // Main Gaussian wave shape
-                float mainWave = exp(-dist * dist * uRippleWidth) * rippleAmp;
+                // Base ripple shape
+                float baseRipple = exp(-dist * dist * uRippleWidth);
                 
-                // Add secondary waves for more detail
-                float secondaryWave = exp(-dist * dist * (uRippleWidth * 2.0)) * rippleAmp * 0.5;
-                float detailWave = sin(dist * 50.0) * exp(-dist * dist * uRippleWidth * 0.5) * rippleAmp * 0.3;
+                // Frequency-based modulation (spectrograph effect)
+                // Each radial segment shows different frequency intensity
+                float freqIntensity = vFrequency * uFrequencyScale;
+                
+                // Main wave modulated by frequency at this radial position
+                float mainWave = baseRipple * rippleAmp * (0.3 + freqIntensity);
+                
+                // Secondary wave for frequencies above threshold
+                float secondaryWave = 0.0;
+                if (freqIntensity > 0.3) {
+                  secondaryWave = exp(-dist * dist * (uRippleWidth * 1.5)) * rippleAmp * freqIntensity * 0.7;
+                }
+                
+                // High-frequency detail wave for strong frequencies
+                float detailWave = 0.0;
+                if (freqIntensity > 0.5) {
+                  detailWave = sin(dist * 80.0) * exp(-dist * dist * uRippleWidth * 0.3) * freqIntensity * 0.4;
+                }
                 
                 float wave = mainWave + secondaryWave + detailWave;
-                
-                // Scale by frequency at this radial position
-                wave *= (1.0 + vFrequency * uFrequencyScale);
                 
                 rippleSum += wave;
               }
@@ -349,13 +373,33 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               }
               
               // Convert hue to color
-              vec3 color = hsl2rgb(vec3(currentHue, 0.8, 0.5));
+              vec3 baseColor = hsl2rgb(vec3(currentHue, 0.8, 0.5));
+              
+              // Frequency-based color modulation (spectrograph visualization)
+              float freqIntensity = vFrequency * 3.0;
+              
+              // Create frequency-based color bands
+              vec3 freqColor = vec3(0.0);
+              if (freqIntensity > 0.1) {
+                // Low frequencies (red-orange)
+                if (vUv.x < 0.33) {
+                  freqColor = vec3(1.0, 0.4, 0.1) * freqIntensity;
+                }
+                // Mid frequencies (green-yellow) 
+                else if (vUv.x < 0.66) {
+                  freqColor = vec3(0.2, 1.0, 0.3) * freqIntensity;
+                }
+                // High frequencies (blue-cyan)
+                else {
+                  freqColor = vec3(0.1, 0.6, 1.0) * freqIntensity;
+                }
+              }
+              
+              // Blend base color with frequency visualization
+              vec3 color = mix(baseColor, baseColor + freqColor, 0.6);
               
               // Mix with user colors
-              color = mix(color, mix(uColorA, uColorB, vUv.x), 0.3);
-              
-              // Add frequency-based glow
-              color += vFrequency * uGlowIntensity;
+              color = mix(color, mix(uColorA, uColorB, vUv.x), 0.2);
               
               // Depth fog (looking down the tunnel)
               float depth = vUv.y;
