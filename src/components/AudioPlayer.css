@@ -1,0 +1,34 @@
+
+/* Hacky selectors for native controls (limited support) */
+.glass-audio::-webkit-media-controls-play-button,
+.glass-audio::-webkit-media-controls-pause-button {
+  filter: invert(1) brightness(2) !important;
+}
+
+
+.glass-audio::-webkit-media-controls-current-time-display,
+.glass-audio::-webkit-media-controls-time-remaining-display {
+  color: #fff !important;
+}
+
+.glass-audio::-webkit-media-controls-enclosure {
+  background: transparent !important;
+}
+
+.glass-audio::-webkit-media-controls-volume-slider {
+  background: rgba(255,255,255,0.25) !important;
+  border-radius: 8px !important;
+}
+
+/* Firefox (very limited) */
+.glass-audio::-moz-media-controls {
+  background: rgba(255,255,255,0.15) !important;
+  border-radius: 16px !important;
+}
+
+/* Edge/Chromium (experimental) */
+.glass-audio::part(panel) {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+}

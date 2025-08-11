@@ -41,10 +41,7 @@ function App() {
         </div>
         {/* Bottom glass player */}
         <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-10">
-          <div className="bg-neutral-900/50 backdrop-blur-md border border-neutral-800/70 rounded-xl shadow-lg p-3 flex items-center justify-between">
-            <div className="text-sm text-neutral-300">Selected: {selected?.meta.name}</div>
-            <AudioPlayer />
-          </div>
+          <AudioPlayer />
         </div>
       </div>
     </AudioAnalyserProvider>

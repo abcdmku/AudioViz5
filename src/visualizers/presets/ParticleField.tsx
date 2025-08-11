@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { VisualizerComponent, VisualizerMeta } from '../../types/visualizer'
-import CinematicEffects from '../environments/CinematicEffects'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 
 export const particleFieldMeta: VisualizerMeta = {
   id: 'particle-field',
@@ -22,61 +22,61 @@ export const ParticleField: VisualizerComponent = ({ analyserData, settings }) =
   const baseRadius = 28
   const radiusVariance = 10
   // Particle shell limits
-  const minParticleRadius = 18
-  const maxParticleRadius = 38
+  const minParticleRadius = 10
+  const maxParticleRadius = 50
   // Color
   const colorSaturation = 3
   const colorLightness = .5
-  // Axis randomness
-  const axisRandomness = 0.1
-  // Speed range
-  const minSpeed = 0.0001
-  const maxSpeed = 0.001
   // Orbit camera
   const cameraOrbitRadius = 55
   const cameraOrbitYOffset = 8
   const cameraOrbitYStrength = 18
   const cameraOrbitSpeed = 0.18
   // Particle size
-  const baseParticleSize = 0.1
-  // Color lerp to white
-  const colorLerpStrength = 0
+  const baseParticleSize = 0.2
   
   // --- Particle Generation ---
-  const { positions, colors, axes, speeds } = useMemo(() => {
+  const { positions, colors, hues } = useMemo(() => {
     const pos = new Float32Array(count * 3)
     const cols = new Float32Array(count * 3)
-    const axesArr = []
-    const speedsArr = []
-  for (let i = 0; i < count; i++) {
-      // Spherical coordinates for even distribution
-      const phi = Math.acos(1 - 2 * (i + 0.5) / count)
-      const theta = Math.PI * (1 + Math.sqrt(5)) * i
-      const r = baseRadius + Math.sin(i * 0.7) * radiusVariance
-      pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta)
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
-      pos[i * 3 + 2] = r * Math.cos(phi)
-      // Color by frequency bin (HSL gradient)
-      const hue = i / count
-      const color = new THREE.Color().setHSL(hue, colorSaturation, colorLightness)
-      cols[i * 3 + 0] = color.r
-      cols[i * 3 + 1] = color.g
-      cols[i * 3 + 2] = color.b
-      // Random axis for rotation
-      const axis = new THREE.Vector3(
-        Math.random() * 2 * axisRandomness - axisRandomness,
-        Math.random() * 2 * axisRandomness - axisRandomness,
-        Math.random() * 2 * axisRandomness - axisRandomness
-      ).normalize()
-      axesArr.push(axis)
-      // Random speed for rotation
-      speedsArr.push(minSpeed + Math.random() * (maxSpeed - minSpeed))
+    const huesArr = []
+    // Cyberpunk neon color palette in HSL: [hue, saturation, lightness]
+    const neonColorsHSL = [
+      [0.83, colorSaturation, colorLightness], // magenta
+      [0.52, colorSaturation, colorLightness], // cyan
+      [0.66, colorSaturation, colorLightness], // blue
+      [0.41, colorSaturation, colorLightness], // electric green
+      [0.95, colorSaturation, colorLightness], // pink
+      [0.08, colorSaturation, colorLightness], // orange
+      [0.76, colorSaturation, colorLightness], // purple
+    ]
+    for (let i = 0; i < count; i++) {
+      // Random position on sphere
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = baseRadius + Math.sin(i * 0.7) * radiusVariance;
+      pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+
+      // Neon color selection
+      const neonIdx = i % neonColorsHSL.length;
+      const [h, s, l] = neonColorsHSL[neonIdx];
+      huesArr.push(h);
+      const color = new THREE.Color().setHSL(h, s, l);
+      cols[i * 3 + 0] = color.r;
+      cols[i * 3 + 1] = color.g;
+      cols[i * 3 + 2] = color.b;
     }
-    return { positions: pos, colors: cols, axes: axesArr, speeds: speedsArr }
-  }, [count, baseRadius, radiusVariance, colorSaturation, colorLightness, axisRandomness, minSpeed, maxSpeed])
+    return { positions: pos, colors: cols, hues: huesArr }
+  }, [count, baseRadius, radiusVariance, colorSaturation, colorLightness])
 
   // Camera animation
   const camAngle = useRef(0)
+  // Variable to control expansion direction randomness
+
   useFrame(({ camera }, delta) => {
     camAngle.current += delta * cameraOrbitSpeed * (settings.animationSpeed || 1)
     camera.position.set(
@@ -86,43 +86,40 @@ export const ParticleField: VisualizerComponent = ({ analyserData, settings }) =
     )
     camera.lookAt(0, 0, 0)
 
-    if (!points.current) return
-    const geometry = points.current.geometry as THREE.BufferGeometry
-    const arrPos = (geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array
-    const arrCol = (geometry.getAttribute('color') as THREE.BufferAttribute).array as Float32Array
+    if (!points.current) return;
+    const geometry = points.current.geometry as THREE.BufferGeometry;
+    const arrPos = (geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array;
+    const arrCol = (geometry.getAttribute('color') as THREE.BufferAttribute).array as Float32Array;
 
+    // Logarithmic mapping for perceptual uniformity
+    const minHz = 20;
+    const maxHz = 20000;
+    const nBins = freq.length;
     for (let i = 0; i < count; i++) {
-      // Loudness for this bin
-      // If there are more particles than frequency bins, wrap around
-      const loud = freq[i % freq.length] / 255
-      // Animate position with audio and electron-like orbit
-      const base = new THREE.Vector3(
-        positions[i * 3 + 0],
-        positions[i * 3 + 1],
-        positions[i * 3 + 2]
-      )
-      // Rotation axis and speed
-      const axis = axes[i]
-      const speed = speeds[i]
-      // Compute rotation angle
-      const angle = camAngle.current * speed + loud * Math.sin(camAngle.current * 2 + i * 0.13) * 0.7
-      // Create quaternion for rotation
-      const q = new THREE.Quaternion().setFromAxisAngle(axis, angle)
-      const rotated = base.clone().applyQuaternion(q)
-      // Compute target radius based on loudness
-      const baseLen = rotated.length()
-      const targetRadius = THREE.MathUtils.lerp(minParticleRadius, maxParticleRadius, loud)
-      const scale = targetRadius / (baseLen || 1)
-      // Pulse outwards with loudness, but clamp to shell
-      arrPos[i * 3 + 0] = rotated.x * scale
-      arrPos[i * 3 + 1] = rotated.y * scale
-      arrPos[i * 3 + 2] = rotated.z * scale
-      // Brightness by loudness
-      const baseColor = new THREE.Color(arrCol[i * 3 + 0], arrCol[i * 3 + 1], arrCol[i * 3 + 2])
-      baseColor.lerp(new THREE.Color(1,1,1), loud * colorLerpStrength)
-      arrCol[i * 3 + 0] = baseColor.r
-      arrCol[i * 3 + 1] = baseColor.g
-      arrCol[i * 3 + 2] = baseColor.b
+      // Map particle index to frequency bin using log scale
+      const norm = i / (count - 1);
+      const hz = minHz * Math.pow(maxHz / minHz, norm);
+      const bin = Math.min(nBins - 1, Math.round((Math.log10(hz / minHz) / Math.log10(maxHz / minHz)) * (nBins - 1)));
+      const loud = freq[bin] / 255;
+      // Animate position with audio
+      const baseLen = Math.sqrt(
+        positions[i * 3 + 0] * positions[i * 3 + 0] +
+        positions[i * 3 + 1] * positions[i * 3 + 1] +
+        positions[i * 3 + 2] * positions[i * 3 + 2]
+      );
+      const targetRadius = THREE.MathUtils.lerp(minParticleRadius, maxParticleRadius, loud);
+      const scale = targetRadius / (baseLen || 1);
+      arrPos[i * 3 + 0] = positions[i * 3 + 0] * scale;
+      arrPos[i * 3 + 1] = positions[i * 3 + 1] * scale;
+      arrPos[i * 3 + 2] = positions[i * 3 + 2] * scale;
+      // Set lightness based on loudness, matching movement, use original hue
+      const mappedLightness = THREE.MathUtils.lerp(0.4, .6, loud);
+      const mappedSaturation = THREE.MathUtils.lerp(1, 10, loud);
+      const hue = hues[i] !== undefined ? hues[i] : 0.5;
+      const finalColor = new THREE.Color().setHSL(hue, mappedSaturation, mappedLightness);
+      arrCol[i * 3 + 0] = finalColor.r;
+      arrCol[i * 3 + 1] = finalColor.g;
+      arrCol[i * 3 + 2] = finalColor.b;
     }
 
     const posAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -132,12 +129,17 @@ export const ParticleField: VisualizerComponent = ({ analyserData, settings }) =
 
     // Particle size remains constant
     if (matRef.current) {
-      matRef.current.size = baseParticleSize
+      matRef.current.size = baseParticleSize;
     }
   })
 
   return (
     <>
+      {/* Scene background color */}
+      <color attach="background" args={["#0a0020"]} />
+      {/* Lighting */}
+      <ambientLight intensity={0.7} color="#222244" />
+      <pointLight position={[0, 20, 20]} intensity={2.2} color="#00ffff" />
       <points ref={points}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
@@ -148,11 +150,17 @@ export const ParticleField: VisualizerComponent = ({ analyserData, settings }) =
           size={baseParticleSize}
           sizeAttenuation
           transparent
-          opacity={0.92}
+          opacity={0.97}
           vertexColors
         />
       </points>
-      <CinematicEffects />
+      <EffectComposer>
+        <Bloom
+          luminanceThreshold={0.2}
+          luminanceSmoothing={.7}
+          intensity={1.5}
+        />
+      </EffectComposer>
     </>
   )
 }
