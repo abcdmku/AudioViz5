@@ -22,9 +22,9 @@ interface Ripple {
 
 export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) => {
   // Configurable parameters
-  const TUNNEL_LENGTH = 80          // Tunnel depth
+  const TUNNEL_LENGTH = 160          // Tunnel depth
   const TUNNEL_RADIUS = 8           // Tunnel width
-  const RADIAL_SEGMENTS = 128       // Frequency resolution
+  const RADIAL_SEGMENTS = 128*8       // Frequency resolution
   const LENGTH_SEGMENTS = 256       // Ripple smoothness
   const RIPPLE_SPEED = 0.5          // Speed ripples travel (0-1)
   const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
@@ -32,12 +32,12 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
   const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
   const FREQUENCY_SCALE = 4.0       // Frequency effect multiplier
-  const MIN_BPM = 70                // Minimum BPM to detect
-  const MAX_BPM = 180               // Maximum BPM to detect
-  const BEAT_THRESHOLD = 0.05       // RMS threshold for beat
-  const FOG_DENSITY = 0.8           // Depth fog amount
+  const MIN_BPM = 40                // Minimum BPM to detect
+  const MAX_BPM = 500               // Maximum BPM to detect
+  const BEAT_THRESHOLD = 0.005       // RMS threshold for beat
+  const FOG_DENSITY = 1           // Depth fog amount
   const GLOW_INTENSITY = 0.3        // Frequency glow strength
-  const MAX_RIPPLES = 32            // Maximum concurrent ripples
+  const MAX_RIPPLES = 128            // Maximum concurrent ripples
 
   // State management
   const ripples = useRef<Ripple[]>([])
@@ -360,15 +360,18 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             }
 
             void main() {
-              // Find most recent ripple affecting this position
-              // Ripples start at y=0 (far end) and travel to y=1 (near end)
+              // Color changes start from tunnel beginning and persist forward
+              // Y=0 is far end (where ripples originate), Y=1 is near end (camera)
               float currentHue = 0.5;
               
-              for (int i = 0; i < ${MAX_RIPPLES}; i++) {
-                if (i >= uRippleCount) break;
-                // If ripple has passed this position, use its hue
-                if (uRipplePositions[i] >= vUv.y) {
+              // Look for any ripple that has been created - its hue should affect
+              // the entire tunnel from the start point forward
+              for (int i = uRippleCount - 1; i >= 0; i--) {
+                // Check if this ripple exists (has been created)
+                if (uRipplePositions[i] >= 0.0) {
+                  // This ripple's hue should color the tunnel from start forward
                   currentHue = uRippleHues[i];
+                  break; // Use the most recently created ripple's hue
                 }
               }
               
