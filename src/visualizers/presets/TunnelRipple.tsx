@@ -360,18 +360,20 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             }
 
             void main() {
-              // Color changes start from tunnel beginning and persist forward
-              // Y=0 is far end (where ripples originate), Y=1 is near end (camera)
+              // Color changes travel with ripples toward the camera
+              // Y=0 is far end (where ripples start), Y=1 is near end (camera)
               float currentHue = 0.5;
               
-              // Look for any ripple that has been created - its hue should affect
-              // the entire tunnel from the start point forward
-              for (int i = uRippleCount - 1; i >= 0; i--) {
-                // Check if this ripple exists (has been created)
-                if (uRipplePositions[i] >= 0.0) {
-                  // This ripple's hue should color the tunnel from start forward
+              // Find the furthest ripple that has passed this position
+              // This creates a traveling color wave effect
+              for (int i = 0; i < ${MAX_RIPPLES}; i++) {
+                if (i >= uRippleCount) break;
+                
+                // If the ripple has traveled past this tunnel position,
+                // apply its hue (creating a trailing color effect)
+                if (uRipplePositions[i] >= vUv.y) {
                   currentHue = uRippleHues[i];
-                  break; // Use the most recently created ripple's hue
+                  // Don't break - let later ripples override if they've also passed
                 }
               }
               
