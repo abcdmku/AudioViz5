@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { VisualizerComponent, VisualizerMeta } from '../../types/visualizer'
-import { Environment, OrbitControls } from '@react-three/drei'
+import { Environment, OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import CinematicEffects from '../environments/CinematicEffects'
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -216,16 +216,21 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
 
   return (
     <>
+      <PerspectiveCamera 
+        makeDefault 
+        position={[0, TUNNEL_LENGTH / 2 + 5, 0]} 
+        fov={75}
+      />
       <ambientLight intensity={0.3} />
       <directionalLight position={[0, 0, 10]} intensity={0.7} />
       <Environment preset="night" />
       <OrbitControls
         enablePan={false}
         enableZoom={true}
-        enableRotate={true}
+        enableRotate={false}
         enableDamping
         dampingFactor={0.1}
-        target={[0, 0, -10]}
+        target={[0, -TUNNEL_LENGTH / 4, 0]}
       />
       
       <mesh position={[0, 0, 0]}>
