@@ -10,11 +10,12 @@ import { AbstractBloom, abstractBloomMeta } from './presets/AbstractBloom'
 import { WaveKnot, waveKnotMeta } from './presets/WaveKnot'
 import { WaveKnotFat, waveKnotFatMeta } from './presets/WaveKnotFat'
 import { WaveKnotOrganic, waveKnotOrganicMeta } from './presets/WaveKnotOrganic'
-
+import { MorphingContours, morphingContoursMeta } from './presets/MorphingContours'
 import { WaveKnotFatParam, waveKnotFatParamMeta } from './presets/WaveKnotFatParam'
 import { TunnelRipple, tunnelRippleMeta } from './presets/TunnelRipple'
 import { WaveformTunnel, waveformTunnelMeta } from './presets/WaveformTunnel'
-import { MorphingContours, morphingContoursMeta } from './presets/MorphingContours'
+import { SharpSphere, sharpSphereMeta } from './presets/SharpSphere'
+import { Kaleidoscope, kaleidoscopeMeta } from './presets/Kaleidoscope'
 
 export const visualizers: Record<string, { Component: VisualizerComponent; meta: VisualizerMeta }> = {
   [bars3DMeta.id]: { Component: Bars3D, meta: bars3DMeta },
@@ -30,6 +31,8 @@ export const visualizers: Record<string, { Component: VisualizerComponent; meta:
   [tunnelRippleMeta.id]: { Component: TunnelRipple, meta: tunnelRippleMeta },
   [waveformTunnelMeta.id]: { Component: WaveformTunnel, meta: waveformTunnelMeta },
   [morphingContoursMeta.id]: { Component: MorphingContours, meta: morphingContoursMeta },
+  [sharpSphereMeta.id]: { Component: SharpSphere, meta: sharpSphereMeta },
+  [kaleidoscopeMeta.id]: { Component: Kaleidoscope, meta: kaleidoscopeMeta },
 }
 
 export type AvailableVisualizerId = keyof typeof visualizers

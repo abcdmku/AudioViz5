@@ -5,13 +5,13 @@ import * as THREE from 'three'
 import type { VisualizerComponent, VisualizerMeta } from '../../types/visualizer'
 import CinematicEffects from '../environments/CinematicEffects'
 
-export const morphingContoursMeta: VisualizerMeta = {
-  id: 'morphing-contours',
-  name: 'Morphing Contours',
+export const sharpSphereMeta: VisualizerMeta = {
+  id: 'sharp-sphere',
+  name: 'Sharp Sphere',
   description: 'Organic flowing shapes with neon contour lines that morph based on audio',
 }
 
-export const MorphingContours: VisualizerComponent = ({ analyserData, settings }) => {
+export const SharpSphere: VisualizerComponent = ({ analyserData, settings }) => {
   const meshRef = useRef<THREE.Mesh>(null)
   const materialRef = useRef<THREE.ShaderMaterial>(null)
   
@@ -19,14 +19,14 @@ export const MorphingContours: VisualizerComponent = ({ analyserData, settings }
     uTime: { value: 0 },
     uMorphPhase: { value: 1 },
     uBassEnergy: { value: 0 },
-    uMidEnergy: { value: 10 },
-    uHighEnergy: { value: .5 },
+    uMidEnergy: { value: 0 },
+    uHighEnergy: { value: 0 },
     uColorA: { value: new THREE.Color(settings.colorA) },
     uColorB: { value: new THREE.Color(settings.colorB) },
     uNoiseScale: { value: .01 },
     uDistortion: { value: .3 },
     uGlowIntensity: { value: 0.6 },
-    uContourFrequency: { value: 10000 },
+    uContourFrequency: { value: 1000 },
     uContourSharpness: { value: 1 },
     uAudioReactivity: { value: 10 },
   }), [settings.colorA, settings.colorB])
@@ -101,7 +101,7 @@ export const MorphingContours: VisualizerComponent = ({ analyserData, settings }
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 0, 1.2]} fov={150} />
+      <PerspectiveCamera makeDefault position={[0, 0, -5]} fov={150} />
       <ambientLight intensity={0.2} />
       <directionalLight position={[5, 5, 5]} intensity={0.8} />
       <Environment preset={'night' as any} />
