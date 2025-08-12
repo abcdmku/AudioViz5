@@ -30,10 +30,10 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
   const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
   const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
-  const MOUNTAIN_HEIGHT = 2.0       // Height of mountain peaks based on frequency
-  const MOUNTAIN_THRESHOLD = 0.05   // Minimum audio level to show mountains (0-1)
-  const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
-  const FREQUENCY_SCALE = 4.0       // Frequency effect multiplier
+  const MOUNTAIN_HEIGHT = 20.0       // Height of mountain peaks based on frequency
+  const MOUNTAIN_THRESHOLD = 0.01   // Minimum audio level to show mountains (0-1)
+  const HUE_SHIFT_SPEED = 0.1   // Hue change per beat
+  const FREQUENCY_SCALE = 4    // Frequency effect multiplier
   const MIN_BPM = 40                // Minimum BPM to detect
   const MAX_BPM = 500               // Maximum BPM to detect
   const BEAT_THRESHOLD = 0.005       // RMS threshold for beat
@@ -351,18 +351,20 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               vec3 normal = normalize(vec3(pos.x, 0.0, pos.z));
               
               // Base frequency displacement (mountain terrain)
-              // Only create mountains when there's significant frequency content
               float audioIntensity = vFrequency;
               
-              // Smooth transition from flat to mountainous using smoothstep
-              float mountainDisplacement = 0.0;
+              // Always show some mountains for debugging, scale with audio
+              float baseDisplacement = uMountainHeight * 0.2; // Base 20% height always
+              float audioDisplacement = 0.0;
+              
               if (audioIntensity > uMountainThreshold) {
                 // Scale mountain height based on audio intensity above threshold
                 float scaledIntensity = (audioIntensity - uMountainThreshold) / (1.0 - uMountainThreshold);
-                // Use smoothstep for even smoother transitions
                 scaledIntensity = smoothstep(0.0, 1.0, scaledIntensity);
-                mountainDisplacement = scaledIntensity * uMountainHeight;
+                audioDisplacement = scaledIntensity * uMountainHeight * 0.8; // Additional 80% from audio
               }
+              
+              float mountainDisplacement = baseDisplacement + audioDisplacement;
               
               // Add multiple layers of noise for complex mountain terrain
               // Large terrain features
@@ -382,13 +384,17 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               // Combine all noise layers
               float totalNoise = noise1 + noise2 + noise3 + noise4 + noise5 + fractal;
               
-              // Only apply noise variation when there's audio content
+              // Always apply some noise, scale more with audio
+              float baseNoiseScale = 0.3; // Base noise always present
+              float audioNoiseScale = 0.0;
+              
               if (audioIntensity > uMountainThreshold) {
-                // Scale noise contribution based on audio intensity
                 float noiseScale = (audioIntensity - uMountainThreshold) / (1.0 - uMountainThreshold);
-                noiseScale = smoothstep(0.0, 1.0, noiseScale); // Smooth noise scaling too
-                mountainDisplacement += totalNoise * noiseScale * (0.5 + audioIntensity * 1.2);
+                noiseScale = smoothstep(0.0, 1.0, noiseScale);
+                audioNoiseScale = noiseScale * (0.7 + audioIntensity * 1.2);
               }
+              
+              mountainDisplacement += totalNoise * (baseNoiseScale + audioNoiseScale);
               
               // Apply mountain displacement inward (creating valleys and peaks)
               pos -= normal * mountainDisplacement;
