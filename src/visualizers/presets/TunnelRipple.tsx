@@ -296,7 +296,6 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             uniform float uRippleAmplitude;
             uniform float uFrequencyScale;
             uniform float uMountainHeight;
-            uniform float uTime;
 
             void main() {
               vUv = uv;
