@@ -25,11 +25,12 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const TUNNEL_LENGTH = 160          // Tunnel depth
   const TUNNEL_RADIUS = 8           // Tunnel width
   const RADIAL_SEGMENTS = 128*8       // Frequency resolution
-  const LENGTH_SEGMENTS = 256       // Ripple smoothness
-  const RIPPLE_SPEED = 0.5          // Speed ripples travel (0-1)
+  const LENGTH_SEGMENTS = 1       // Ripple smoothness
+  const RIPPLE_SPEED = 1.0          // Speed ripples travel (0-1)
   const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
   const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
   const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
+  const MOUNTAIN_HEIGHT = 2.0       // Height of mountain peaks based on frequency
   const HUE_SHIFT_SPEED = 0.1       // Hue change per beat
   const FREQUENCY_SCALE = 4.0       // Frequency effect multiplier
   const MIN_BPM = 40                // Minimum BPM to detect
@@ -73,6 +74,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
     uRippleWidth: { value: RIPPLE_WIDTH },
     uRippleAmplitude: { value: RIPPLE_AMPLITUDE },
     uFrequencyScale: { value: FREQUENCY_SCALE },
+    uMountainHeight: { value: MOUNTAIN_HEIGHT },
     uFogDensity: { value: FOG_DENSITY },
     uGlowIntensity: { value: GLOW_INTENSITY },
   })
@@ -293,6 +295,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             uniform float uRippleWidth;
             uniform float uRippleAmplitude;
             uniform float uFrequencyScale;
+            uniform float uMountainHeight;
 
             void main() {
               vUv = uv;
@@ -341,9 +344,22 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
                 rippleSum += wave;
               }
               
-              // Displace vertices radially inward (shrinking effect)
+              // Create mountain-like terrain based on frequency data
               vec3 normal = normalize(vec3(pos.x, 0.0, pos.z));
-              pos -= normal * rippleSum * uRippleAmplitude;
+              
+              // Base frequency displacement (mountain terrain)
+              float mountainDisplacement = vFrequency * uMountainHeight;
+              
+              // Add some noise for more natural mountain appearance
+              float noise1 = sin(vUv.x * 50.0 + vUv.y * 30.0) * 0.1;
+              float noise2 = sin(vUv.x * 80.0 + vUv.y * 60.0) * 0.05;
+              mountainDisplacement += (noise1 + noise2) * vFrequency;
+              
+              // Apply mountain displacement inward (creating valleys and peaks)
+              pos -= normal * mountainDisplacement;
+              
+              // Add ripple effects on top of mountain terrain
+              pos -= normal * rippleSum * uRippleAmplitude * 0.5;
               
               // Pass lighting information
               vNormal = normalMatrix * normal;
@@ -454,19 +470,32 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               // Mix with user colors
               color = mix(color, mix(uColorA, uColorB, vUv.x), 0.2);
               
-              // Basic directional lighting calculation
+              // Enhanced lighting for mountain terrain
               vec3 normal = normalize(vNormal);
               vec3 lightDirection = normalize(vec3(1.0, 0.5, 1.0)); // Main light direction
               float lightIntensity = max(dot(normal, lightDirection), 0.0);
               
-              // Add shadow/lighting effect
-              float shadow = 0.4 + lightIntensity * 0.6; // Base shadow + light contribution
+              // Create more dramatic shadows for mountain peaks and valleys
+              float shadow = 0.3 + lightIntensity * 0.7; // Stronger contrast
+              
+              // Add mountain altitude-based shading (peaks are brighter)
+              float altitude = vFrequency; // Use frequency as altitude
+              shadow += altitude * 0.2; // Peaks get more light
+              
               color *= shadow;
               
-              // Secondary light from opposite side
+              // Secondary light from opposite side with altitude effect
               vec3 lightDirection2 = normalize(vec3(-0.5, -1.0, 0.8));
               float lightIntensity2 = max(dot(normal, lightDirection2), 0.0);
-              color += lightIntensity2 * 0.3 * vec3(0.4, 0.6, 0.9); // Blue secondary light
+              
+              // Mountain peaks catch more secondary light
+              vec3 secondaryColor = vec3(0.4, 0.6, 0.9) * (1.0 + altitude * 0.5);
+              color += lightIntensity2 * 0.3 * secondaryColor;
+              
+              // Add subtle rim lighting for mountain edges
+              float rim = 1.0 - abs(dot(normal, vec3(0.0, 1.0, 0.0)));
+              rim = pow(rim, 2.0);
+              color += rim * altitude * 0.2 * vec3(1.0, 0.8, 0.6);
               
               // Depth fog (looking down the tunnel)
               float depth = vUv.y;
