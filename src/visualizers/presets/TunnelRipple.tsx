@@ -25,7 +25,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   const TUNNEL_LENGTH = 160          // Tunnel depth
   const TUNNEL_RADIUS = 8           // Tunnel width
   const RADIAL_SEGMENTS = 128*8       // Frequency resolution
-  const LENGTH_SEGMENTS = 1       // Ripple smoothness
+  const LENGTH_SEGMENTS = 256       // Ripple smoothness
   const RIPPLE_SPEED = 1.0          // Speed ripples travel (0-1)
   const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
   const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
@@ -296,6 +296,7 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
             uniform float uRippleAmplitude;
             uniform float uFrequencyScale;
             uniform float uMountainHeight;
+            uniform float uTime;
 
             void main() {
               vUv = uv;
@@ -350,10 +351,26 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
               // Base frequency displacement (mountain terrain)
               float mountainDisplacement = vFrequency * uMountainHeight;
               
-              // Add some noise for more natural mountain appearance
-              float noise1 = sin(vUv.x * 50.0 + vUv.y * 30.0) * 0.1;
-              float noise2 = sin(vUv.x * 80.0 + vUv.y * 60.0) * 0.05;
-              mountainDisplacement += (noise1 + noise2) * vFrequency;
+              // Add multiple layers of noise for complex mountain terrain
+              // Large terrain features
+              float noise1 = sin(vUv.x * 20.0 + vUv.y * 15.0 + uTime * 0.1) * 0.3;
+              float noise2 = cos(vUv.x * 35.0 + vUv.y * 25.0 - uTime * 0.15) * 0.2;
+              
+              // Medium terrain features  
+              float noise3 = sin(vUv.x * 60.0 + vUv.y * 40.0 + uTime * 0.2) * 0.15;
+              float noise4 = cos(vUv.x * 80.0 - vUv.y * 50.0 + uTime * 0.05) * 0.1;
+              
+              // Fine detail
+              float noise5 = sin(vUv.x * 120.0 + vUv.y * 100.0 - uTime * 0.3) * 0.05;
+              
+              // Add some fractal-like variation
+              float fractal = sin(vUv.x * 40.0) * cos(vUv.y * 30.0) * sin(uTime * 0.1) * 0.1;
+              
+              // Combine all noise layers
+              float totalNoise = noise1 + noise2 + noise3 + noise4 + noise5 + fractal;
+              
+              // Modulate displacement with both frequency and terrain variation
+              mountainDisplacement += totalNoise * (0.5 + vFrequency * 1.2);
               
               // Apply mountain displacement inward (creating valleys and peaks)
               pos -= normal * mountainDisplacement;
