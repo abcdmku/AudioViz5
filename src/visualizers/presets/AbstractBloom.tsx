@@ -1,4 +1,4 @@
-import CinematicEffects from '../environments/CinematicEffects'
+import Kaleidoscope from '../environments/Kaleidoscope'
 import { Environment } from '@react-three/drei'
 import { OrbitControls } from '@react-three/drei'
 import { useMemo } from 'react'
@@ -98,7 +98,12 @@ export const AbstractBloom: VisualizerComponent = ({ analyserData, settings }) =
           />
         </mesh>
       </group>
-      <CinematicEffects />
+      <Kaleidoscope 
+        segments={8}
+        rotationSpeed={0.1}
+        internalReflections={2}
+        zoom={1.2}
+      />
     </>
   )
 }

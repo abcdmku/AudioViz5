@@ -15,7 +15,7 @@ import { WaveKnotFatParam, waveKnotFatParamMeta } from './presets/WaveKnotFatPar
 import { TunnelRipple, tunnelRippleMeta } from './presets/TunnelRipple'
 import { WaveformTunnel, waveformTunnelMeta } from './presets/WaveformTunnel'
 import { SharpSphere, sharpSphereMeta } from './presets/SharpSphere'
-import { Kaleidoscope, kaleidoscopeMeta } from './presets/Kaleidoscope'
+import { KaleidoscopeDemo, kaleidoscopeDemoMeta } from './presets/KaleidoscopeDemo'
 
 export const visualizers: Record<string, { Component: VisualizerComponent; meta: VisualizerMeta }> = {
   [bars3DMeta.id]: { Component: Bars3D, meta: bars3DMeta },
@@ -32,7 +32,7 @@ export const visualizers: Record<string, { Component: VisualizerComponent; meta:
   [waveformTunnelMeta.id]: { Component: WaveformTunnel, meta: waveformTunnelMeta },
   [morphingContoursMeta.id]: { Component: MorphingContours, meta: morphingContoursMeta },
   [sharpSphereMeta.id]: { Component: SharpSphere, meta: sharpSphereMeta },
-  [kaleidoscopeMeta.id]: { Component: Kaleidoscope, meta: kaleidoscopeMeta },
+  [kaleidoscopeDemoMeta.id]: { Component: KaleidoscopeDemo, meta: kaleidoscopeDemoMeta },
 }
 
 export type AvailableVisualizerId = keyof typeof visualizers
