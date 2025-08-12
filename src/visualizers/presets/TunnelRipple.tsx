@@ -21,104 +21,67 @@ interface Ripple {
 }
 
 export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) => {
-  // Configurable parameters
-  const TUNNEL_LENGTH = 160          // Tunnel depth
-  const TUNNEL_RADIUS = 8           // Tunnel width
-  const RADIAL_SEGMENTS = 128*8       // Frequency resolution
-  const LENGTH_SEGMENTS = 256       // Ripple smoothness
-  const RIPPLE_SPEED = 1.0          // Speed ripples travel (0-1)
-  const RIPPLE_DECAY = 0.98         // Ripple fade rate per frame
-  const RIPPLE_WIDTH = 200          // Ripple gaussian width (shader param)
-  const RIPPLE_AMPLITUDE = 3.0      // Max ripple displacement
-  const MOUNTAIN_HEIGHT = 20.0       // Height of mountain peaks based on frequency
-  const MOUNTAIN_THRESHOLD = 0.01   // Minimum audio level to show mountains (0-1)
-  const HUE_SHIFT_SPEED = 0.1   // Hue change per beat
-  const FREQUENCY_SCALE = 4    // Frequency effect multiplier
-  const MIN_BPM = 40                // Minimum BPM to detect
-  const MAX_BPM = 500               // Maximum BPM to detect
-  const BEAT_THRESHOLD = 0.005       // RMS threshold for beat
-  const FOG_DENSITY = 0.9           // Depth fog amount
-  const GLOW_INTENSITY = 0.3        // Frequency glow strength
-  const MAX_RIPPLES = 128            // Maximum concurrent ripples
+  // Configurable parameters for waveform tunnel
+  const TUNNEL_LENGTH = 100         // Tunnel depth
+  const TUNNEL_RADIUS = 6           // Base tunnel radius
+  const RADIAL_SEGMENTS = 128       // Circumference resolution for waveform
+  const LENGTH_SEGMENTS = 512       // Length segments for smooth waveform travel
+  const WAVEFORM_AMPLITUDE = 2.0    // How much waveform affects tunnel shape
+  const TUNNEL_SPEED = 0.5          // Speed of traveling through tunnel
+  const WAVEFORM_SCALE = 1.0        // Scale factor for waveform data
+  const COLOR_INTENSITY = 1.5       // Waveform color intensity
+  const GLOW_STRENGTH = 0.8         // Glow effect strength
 
-  // State management
-  const ripples = useRef<Ripple[]>([])
-  const beatHistory = useRef<number[]>([])
-  const prevRms = useRef(0)
-  const currentHue = useRef(0)
-  const lastBeatTime = useRef(0)
+  // State management for waveform tunnel
+  const tunnelOffset = useRef(0)
 
-  // Create frequency texture
-  const frequencyTexture = useMemo(() => {
+  // Create waveform texture for tunnel walls
+  const waveformTexture = useMemo(() => {
     const tex = new THREE.DataTexture(
-      new Uint8Array(RADIAL_SEGMENTS * 4),
-      RADIAL_SEGMENTS,
+      new Uint8Array(1024 * 4), // Use full waveform resolution
+      1024,
       1,
       THREE.RGBAFormat
     )
     tex.needsUpdate = true
     tex.magFilter = THREE.LinearFilter
     tex.minFilter = THREE.LinearFilter
+    tex.wrapS = THREE.RepeatWrapping
     return tex
   }, [])
 
-  // Create uniforms
+  // Create uniforms for waveform tunnel
   const uniforms = useRef({
     uTime: { value: 0 },
+    uTunnelOffset: { value: 0 },
     uColorA: { value: new THREE.Color(settings.colorA) },
     uColorB: { value: new THREE.Color(settings.colorB) },
-    uFrequencyTexture: { value: frequencyTexture },
-    uRipplePositions: { value: new Float32Array(MAX_RIPPLES) },
-    uRippleAmplitudes: { value: new Float32Array(MAX_RIPPLES) },
-    uRippleHues: { value: new Float32Array(MAX_RIPPLES) },
-    uRippleCount: { value: 0 },
-    uRippleWidth: { value: RIPPLE_WIDTH },
-    uRippleAmplitude: { value: RIPPLE_AMPLITUDE },
-    uFrequencyScale: { value: FREQUENCY_SCALE },
-    uMountainHeight: { value: MOUNTAIN_HEIGHT },
-    uMountainThreshold: { value: MOUNTAIN_THRESHOLD },
-    uFogDensity: { value: FOG_DENSITY },
-    uGlowIntensity: { value: GLOW_INTENSITY },
+    uWaveformTexture: { value: waveformTexture },
+    uWaveformAmplitude: { value: WAVEFORM_AMPLITUDE },
+    uWaveformScale: { value: WAVEFORM_SCALE },
+    uColorIntensity: { value: COLOR_INTENSITY },
+    uGlowStrength: { value: GLOW_STRENGTH },
+    uTunnelRadius: { value: TUNNEL_RADIUS },
   })
 
-  // Update frequency texture with better frequency distribution
-  const updateFrequencyTexture = () => {
+  // Update waveform texture for tunnel walls
+  const updateWaveformTexture = () => {
     if (!analyserData) return
     
-    const data = frequencyTexture.image.data as Uint8Array
-    const freqArray = analyserData.frequency
-    const totalBins = freqArray.length
+    const data = waveformTexture.image.data as Uint8Array
+    const waveformArray = analyserData.waveform
     
-    for (let i = 0; i < RADIAL_SEGMENTS; i++) {
-      // Map radial segments to frequency bands with logarithmic distribution
-      // This gives better representation across the frequency spectrum
-      const normalizedPos = i / RADIAL_SEGMENTS
-      
-      // Logarithmic frequency mapping (more detail in lower frequencies)
-      const logStart = Math.pow(normalizedPos, 1.5) * totalBins
-      const logEnd = Math.pow((i + 1) / RADIAL_SEGMENTS, 1.5) * totalBins
-      
-      const startBin = Math.floor(logStart)
-      const endBin = Math.min(Math.floor(logEnd), totalBins - 1)
-      
-      // Calculate weighted average for this frequency band
-      let sum = 0
-      let count = 0
-      for (let j = startBin; j <= endBin; j++) {
-        sum += freqArray[j]
-        count++
-      }
-      
-      const avg = count > 0 ? sum / count : 0
-      
+    // Copy waveform data directly to texture
+    for (let i = 0; i < 1024; i++) {
+      const waveValue = i < waveformArray.length ? waveformArray[i] : 128
       const base = i * 4
-      data[base + 0] = avg
-      data[base + 1] = avg
-      data[base + 2] = avg
+      data[base + 0] = waveValue
+      data[base + 1] = waveValue 
+      data[base + 2] = waveValue
       data[base + 3] = 255
     }
     
-    frequencyTexture.needsUpdate = true
+    waveformTexture.needsUpdate = true
   }
 
   // Beat detection with BPM filtering
@@ -165,69 +128,12 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
   useFrame((_, delta) => {
     uniforms.current.uTime.value += delta * settings.animationSpeed
     
-    // Update frequency texture
-    updateFrequencyTexture()
+    // Update waveform texture
+    updateWaveformTexture()
     
-    // Update ripple positions and decay
-    for (const ripple of ripples.current) {
-      ripple.position += RIPPLE_SPEED * delta * settings.animationSpeed
-      ripple.amplitude *= Math.pow(RIPPLE_DECAY, delta * 60) // Normalize to 60fps
-    }
-    
-    // Remove dead ripples
-    ripples.current = ripples.current.filter(
-      r => r.amplitude > 0.01 && r.position <= 1.0
-    )
-    
-    // Detect beats and create new ripples
-    const currentTime = Date.now()
-    const shouldCreateRipple = detectBeat(currentTime)
-    
-    // Also create ripples based on energy level for more responsive visuals
-    const energy = analyserData ? analyserData.frequency.reduce((a, b) => a + b, 0) / analyserData.frequency.length / 255 : 0
-    const energyRipple = energy > 0.4 && (currentTime - lastBeatTime.current) > 500
-    
-    if (shouldCreateRipple || energyRipple) {
-      // Shift hue
-      currentHue.current = (currentHue.current + HUE_SHIFT_SPEED) % 1.0
-      
-      // Create new ripple at tunnel end (position 0)
-      ripples.current.unshift({
-        position: 0,
-        amplitude: energyRipple ? energy * 1.5 : 1.0,
-        hue: currentHue.current,
-        timestamp: currentTime,
-      })
-      
-      if (energyRipple) {
-        lastBeatTime.current = currentTime
-      }
-      
-      // Limit ripple count
-      if (ripples.current.length > MAX_RIPPLES) {
-        ripples.current = ripples.current.slice(0, MAX_RIPPLES)
-      }
-    }
-    
-    // Update shader uniforms
-    const posArr = uniforms.current.uRipplePositions.value
-    const ampArr = uniforms.current.uRippleAmplitudes.value
-    const hueArr = uniforms.current.uRippleHues.value
-    
-    // Clear arrays
-    posArr.fill(0)
-    ampArr.fill(0)
-    hueArr.fill(0)
-    
-    // Fill with current ripples
-    const count = Math.min(MAX_RIPPLES, ripples.current.length)
-    uniforms.current.uRippleCount.value = count
-    
-    for (let i = 0; i < count; i++) {
-      posArr[i] = ripples.current[i].position
-      ampArr[i] = ripples.current[i].amplitude
-      hueArr[i] = ripples.current[i].hue
-    }
+    // Animate tunnel movement (traveling through the waveform)
+    tunnelOffset.current += TUNNEL_SPEED * delta * settings.animationSpeed
+    uniforms.current.uTunnelOffset.value = tunnelOffset.current
   })
 
   return (
@@ -258,9 +164,9 @@ export const TunnelRipple: VisualizerComponent = ({ analyserData, settings }) =>
       />
       <Environment preset="night" />
       <OrbitControls
-        enablePan={false}
+        enablePan={true}
         enableZoom={true}
-        enableRotate={false}
+        enableRotate={true}
         enableDamping
         dampingFactor={0.1}
         target={[0, -TUNNEL_LENGTH / 4, 0]}
